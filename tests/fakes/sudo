@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Fake `sudo` for the test suites.
+#
+# It records the call and fails. It never runs anything. Put tests/fakes first
+# on PATH; a test then proves the script never called sudo by checking that
+# "$FAKE_LOG_DIR/calls.log" has no line starting with "sudo".
+#
+# The suites also symlink other commands the script must never run on the host
+# (dnf, rpm, apt, apt-get, dpkg, pacman, zypper, pkexec, doas, ...) to this file.
+# It logs under the name it was called by:
+#   <name> <args, shell-quoted>
+#
+# FAKE_LOG_DIR defaults to <repo>/.test/fakes. Nothing is written anywhere else.
+set -u
+
+name=$(basename -- "$0")
+self=$(readlink -f -- "${BASH_SOURCE[0]}")
+repo=$(cd -- "$(dirname -- "$self")/../.." && pwd)
+log_dir=${FAKE_LOG_DIR:-$repo/.test/fakes}
+mkdir -p -- "$log_dir"
+{
+  printf '%s' "$name"
+  (($#)) && printf ' %q' "$@"
+  printf '\n'
+} >>"$log_dir/calls.log"
+
+echo "fake $name (tests/fakes/sudo): refusing to run; the installer must never call $name" >&2
+exit 1

@@ -1,0 +1,28 @@
+# Runs the offline suites only. It never builds Aseprite and uploads no
+# artifacts: Aseprite's EULA does not allow redistributing builds.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: tests/lint.sh
+      - name: Unit tests
+        run: tests/unit.sh
