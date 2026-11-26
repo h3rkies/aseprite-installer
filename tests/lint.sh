@@ -9,14 +9,18 @@
 #   - shellcheck: `shellcheck -x` on install-aseprite.sh, tests/*.sh and the
 #     shell scripts in tests/fakes/; it must report nothing
 #
-# Which shellcheck: a local `shellcheck` if there is one. Otherwise the pinned
-# image koalaman/shellcheck:v0.10.0 runs with the repo mounted read-only. If lint
-# pulled that image, it removes it afterwards, unless LINT_KEEP_IMAGE=1.
+# Which shellcheck: the pinned version 0.10.0, so every machine and CI give the
+# same result. A local `shellcheck` is used when it is that version. Otherwise
+# the image koalaman/shellcheck:v0.10.0 runs with the repo mounted read-only; if
+# lint pulled it, it removes it afterwards, unless LINT_KEEP_IMAGE=1. Only when
+# Docker is not usable does a local shellcheck of another version run, with a
+# note that its results may differ.
 # Nothing is installed on the host and nothing in the repo is written.
 set -Euo pipefail
 
 REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-SC_IMAGE=koalaman/shellcheck:v0.10.0
+SC_VERSION=0.10.0
+SC_IMAGE=koalaman/shellcheck:v$SC_VERSION
 ALL_TESTS=(syntax shellcheck)
 declare -A DESC=(
   [syntax]='bash -n passes on every script'
@@ -100,15 +104,24 @@ t_shellcheck() {
   fi
   note "shellcheck -x on: ${files[*]}"
 
-  if command -v shellcheck >/dev/null 2>&1; then
-    note "using local $(shellcheck --version | sed -n 's/^version: /shellcheck /p')"
+  local local_ver="" docker_ok=0
+  command -v shellcheck >/dev/null 2>&1 && local_ver=$(shellcheck --version | sed -n 's/^version: //p')
+  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker_ok=1
+
+  if [[ -n $local_ver ]] && { [[ $local_ver == "$SC_VERSION" ]] || ((!docker_ok)); }; then
+    if [[ $local_ver == "$SC_VERSION" ]]; then
+      note "using local shellcheck $local_ver"
+    else
+      note "using local shellcheck $local_ver: Docker is not usable to run $SC_IMAGE, so results may differ from $SC_VERSION"
+    fi
     out=$(cd -- "$REPO" && shellcheck -x "${files[@]}" 2>&1)
     rc=$?
   else
-    if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    if ((!docker_ok)); then
       fail shellcheck "no local shellcheck, and Docker is not usable to run $SC_IMAGE"
       return
     fi
+    [[ -n $local_ver ]] && note "local shellcheck is $local_ver, not $SC_VERSION; using the pinned image instead"
     if ! docker image inspect "$SC_IMAGE" >/dev/null 2>&1; then
       note "pulling $SC_IMAGE"
       if ! docker pull -q "$SC_IMAGE" >/dev/null; then

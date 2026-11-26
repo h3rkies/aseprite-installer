@@ -667,15 +667,32 @@ path_in_prefix() {
   [[ $p != *[[:cntrl:]]* ]]
 }
 
-# manifest_read FILE: the manifest paths, keeping only paths inside PREFIX.
+# manifest_path_known PATH: true for a path the install step creates: the
+# app folder, the bin link, the desktop entry, an icon, the MIME file or a
+# thumbnailer file. A damaged manifest can then never remove anything else.
+manifest_path_known() {
+  local p=$1 size
+  case $p in
+    "$APP_DIR" | "$BIN_LINK" | "$DESKTOP_FILE" | "$MIME_FILE" | "$THUMB_BIN" | "$THUMB_ENTRY") return 0 ;;
+  esac
+  [[ $p == "$ICON_ROOT"/*/apps/aseprite.png ]] || return 1
+  size=${p#"$ICON_ROOT"/}
+  size=${size%/apps/aseprite.png}
+  [[ $size =~ ^[0-9]+x[0-9]+$ ]]
+}
+
+# manifest_read FILE: the manifest paths, keeping only clean paths inside
+# PREFIX that the script itself installs.
 manifest_read() {
   local line
   while IFS= read -r line || [[ -n $line ]]; do
     [[ -n $line ]] || continue
-    if path_in_prefix "$line"; then
-      printf '%s\n' "$line"
-    else
+    if ! path_in_prefix "$line"; then
       warn "Ignoring a manifest entry outside $PREFIX: $line"
+    elif ! manifest_path_known "$line"; then
+      warn "Ignoring a manifest entry that the script does not install: $line"
+    else
+      printf '%s\n' "$line"
     fi
   done <"$1"
 }

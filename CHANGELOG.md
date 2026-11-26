@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Uninstall removes only manifest entries that are paths the install step creates; anything else in a damaged manifest is skipped with a warning.
+- `tests/lint.sh` always uses shellcheck 0.10.0 (local if that version, else the pinned container), so local runs and CI give the same result.
+
 ## 1.0.0 (2026-11-26)
 
 First public release.
