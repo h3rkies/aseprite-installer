@@ -2310,6 +2310,20 @@ test_uninstall_fallback_keeps_a_bin_that_is_not_ours() {
   assert_eq mine "$(<"$BIN_LINK")" "a regular file is kept"
 }
 
+test_uninstall_with_manifest_keeps_a_bin_that_is_not_ours() {
+  setup_installed
+  ln -sfn /usr/bin/true "$BIN_LINK"
+  capture main --uninstall --yes
+  assert_rc 0 "$RC"
+  [[ -L $BIN_LINK ]] || fail "a symlink pointing elsewhere was removed"
+  assert_missing "$APP_DIR"
+  setup_installed
+  rm -f "$BIN_LINK"
+  echo mine >"$BIN_LINK"
+  capture main --uninstall --yes
+  assert_eq mine "$(<"$BIN_LINK")" "a regular file is kept"
+}
+
 test_uninstall_ignores_manifest_entries_outside_the_prefix() {
   setup_installed
   : >"$T/outside-file"

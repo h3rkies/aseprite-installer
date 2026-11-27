@@ -2159,21 +2159,31 @@ confirm_removal() {
   [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || die 1 "Nothing was removed."
 }
 
-# uninstall_paths: what to remove, existing paths only. The manifest if
-# there is one (entries outside the prefix are skipped), else the fixed
-# paths in README.md "Paths and overrides", with bin/aseprite only if it links into the app.
+# bin_link_is_ours: true when bin/aseprite is a symlink into the app folder.
+bin_link_is_ours() {
+  local target
+  [[ -L $BIN_LINK ]] || return 1
+  target=$(readlink -- "$BIN_LINK") || return 1
+  [[ $target == "$APP_DIR"/* ]]
+}
+
+# uninstall_paths: what to remove, existing paths only. The manifest if there
+# is one (manifest_read keeps only the paths the install step creates), else
+# the fixed paths in README.md "Paths and overrides". Either way bin/aseprite
+# is removed only while it still links into the app.
 uninstall_paths() {
-  local p target
+  local p
   if [[ -f $MANIFEST_FILE ]]; then
     while IFS= read -r p; do
+      if [[ $p == "$BIN_LINK" ]]; then
+        bin_link_is_ours && printf '%s\n' "$p"
+        continue
+      fi
       if [[ -e $p || -L $p ]]; then printf '%s\n' "$p"; fi
     done < <(manifest_read "$MANIFEST_FILE")
     return 0
   fi
-  if [[ -L $BIN_LINK ]]; then
-    target=$(readlink -- "$BIN_LINK") || target=""
-    if [[ $target == "$APP_DIR"/* ]]; then printf '%s\n' "$BIN_LINK"; fi
-  fi
+  if bin_link_is_ours; then printf '%s\n' "$BIN_LINK"; fi
   for p in "$DESKTOP_FILE" "$ICON_ROOT"/*/apps/aseprite.png "$MIME_FILE" "$THUMB_BIN" "$THUMB_ENTRY" "$APP_DIR"; do
     if [[ -e $p || -L $p ]]; then printf '%s\n' "$p"; fi
   done

@@ -255,7 +255,7 @@ Two test-only variables exist. Neither has any effect when unset (or empty):
 **Uninstall**
 
 - Uninstall prints `==> [1/2] Preflight` and `==> [2/2] Uninstalling`.
-- Uninstall removes a manifest entry only if it is one of the paths the install step creates (the app folder, the `bin` link, the desktop entry, `hicolor/<N>x<N>/apps/aseprite.png` icons, the MIME file and the thumbnailer files). Anything else, including paths outside the prefix or with `.`/`..` parts, is skipped with a warning, so a damaged manifest cannot remove anything else.
+- Uninstall removes a manifest entry only if it is one of the paths the install step creates (the app folder, the `bin` link, the desktop entry, `hicolor/<N>x<N>/apps/aseprite.png` icons, the MIME file and the thumbnailer files). Anything else, including paths outside the prefix or with `.`/`..` parts, is skipped with a warning, so a damaged manifest cannot remove anything else. `bin/aseprite` is removed only while it still links into the app folder, so a link or file you put there yourself is kept.
 - After removing the icons, `hicolor/<N>x<N>/apps` and `hicolor/<N>x<N>` are removed only if empty.
 - `--purge` adds the work folder and the image to the list that is shown and confirmed. It deletes only the entries the script makes in the work folder, then the folder itself if that leaves it empty.
 
@@ -267,7 +267,7 @@ Issues and pull requests are welcome. When reporting a problem, please include:
 - the command you ran and its exit code;
 - the last lines of the log named in the `error:` line (`.work/logs/`). Check it for anything private first.
 
-For code changes, run `tests/lint.sh` and `tests/unit.sh` (both offline and need `git`; CI runs them too). For changes to the build or install steps, also run `tests/e2e.sh --quick`. Change or add a test first, then the code.
+For code changes, run `tests/lint.sh` and `tests/unit.sh` (both need `git`; lint may download the pinned shellcheck image; CI runs them too). For changes to the build or install steps, also run `tests/e2e.sh --quick`. Change or add a test first, then the code.
 
 ## Licence
 

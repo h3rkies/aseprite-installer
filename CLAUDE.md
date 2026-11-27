@@ -18,7 +18,7 @@ The files are `install-aseprite.sh` (one self-contained Bash 4+ file), `README.m
 ## Commands
 
 ```bash
-tests/lint.sh                               # shellcheck (container if not installed) + bash -n on every script
+tests/lint.sh                               # shellcheck 0.10.0 (local if that version, else pinned container) + bash -n
 tests/unit.sh                               # offline, no Docker; sources the script
 tests/e2e.sh                                # real builds into .test/, including full builds
 tests/e2e.sh --quick                        # skips the downgrade/update builds
