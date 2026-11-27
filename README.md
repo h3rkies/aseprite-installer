@@ -174,7 +174,7 @@ error: stopped at step [6/9] Building Aseprite (ninja -j 20) (exit 7); log: ~/as
 
 | Suite | What it checks |
 | --- | --- |
-| `tests/lint.sh` | `bash -n` on every script, and shellcheck (in a container if it is not installed) |
+| `tests/lint.sh` | `bash -n` on every script, and shellcheck 0.10.0 (in a container unless that version is installed) |
 | `tests/unit.sh` | Offline unit tests: sources the script and calls its functions. No network, Docker or root. `tests/unit.sh --list` lists the tests; `tests/unit.sh <name>...` runs some. |
 | `tests/e2e.sh` | Real builds into `.test/`. A full run includes several full builds; `tests/e2e.sh --quick` skips the downgrade/update pair. Also `--list`, `--fresh` and test names to run a subset |
 | `tests/portability.sh` | The runtime checks in throwaway distro containers (`--app-dir DIR`, default `~/.local/opt/aseprite`; `--list`) |
@@ -193,7 +193,7 @@ Two test-only variables exist. Neither has any effect when unset (or empty):
 ## Implementation notes
 
 - **Compiler cache.** The build container runs the compilers through `ccache`, with the cache in `.work/ccache` (capped at 3 GB, compiler checked by content). Rebuilds of the same or a nearby version reuse earlier compiles. `--uninstall --purge` deletes the cache with the rest of the work folder.
-- **Lint without installing shellcheck.** `tests/lint.sh` uses a local `shellcheck` when there is one. Otherwise it runs the pinned `koalaman/shellcheck:v0.10.0` image with the repo mounted read-only, and removes the image afterwards if it pulled it.
+- **Lint without installing shellcheck.** `tests/lint.sh` always uses shellcheck 0.10.0, so local runs and CI agree. It uses a local `shellcheck` of that version, or otherwise runs the pinned `koalaman/shellcheck:v0.10.0` image with the repo mounted read-only and removes the image afterwards if it pulled it. Only without usable Docker does it fall back to a local shellcheck of another version, and it says so.
 - **Package names checked in real containers.** `tests/portability.sh` checks the runtime table's names in real distro containers. openSUSE ships `libGL.so.1` in `libglvnd` (there is no `libGL1`). Arch uses `libstdc++` and `libgcc`, because `gcc-libs` is now a meta-package that pulls in much more.
 - **Skia checksum.** The Skia release the build uses by default is checked against a pinned SHA-256, and a mismatch stops the run (exit 6). If an Aseprite version asks for a different Skia release, there is no pinned checksum for it: the zip is still tested for damage and its SHA-256 is written to the log, but it is not verified.
 - **Placeholder version on old releases.** v1.3.17 and older hard-code `set(VERSION "1.x-dev")`, so their `--version` cannot show the tag. When the line is exactly `Aseprite 1.x-dev`, the build check warns and goes on; the state file's `ref` and `commit` still record what is installed.
@@ -255,7 +255,7 @@ Two test-only variables exist. Neither has any effect when unset (or empty):
 **Uninstall**
 
 - Uninstall prints `==> [1/2] Preflight` and `==> [2/2] Uninstalling`.
-- Manifest entries outside the prefix (or with `.`/`..` parts) are skipped with a warning, so a damaged manifest cannot remove anything else.
+- Uninstall removes a manifest entry only if it is one of the paths the install step creates (the app folder, the `bin` link, the desktop entry, `hicolor/<N>x<N>/apps/aseprite.png` icons, the MIME file and the thumbnailer files). Anything else, including paths outside the prefix or with `.`/`..` parts, is skipped with a warning, so a damaged manifest cannot remove anything else. `bin/aseprite` is removed only while it still links into the app folder, so a link or file you put there yourself is kept.
 - After removing the icons, `hicolor/<N>x<N>/apps` and `hicolor/<N>x<N>` are removed only if empty.
 - `--purge` adds the work folder and the image to the list that is shown and confirmed. It deletes only the entries the script makes in the work folder, then the folder itself if that leaves it empty.
 
@@ -267,7 +267,7 @@ Issues and pull requests are welcome. When reporting a problem, please include:
 - the command you ran and its exit code;
 - the last lines of the log named in the `error:` line (`.work/logs/`). Check it for anything private first.
 
-For code changes, run `tests/lint.sh` and `tests/unit.sh` (they need `git`) (both offline; CI runs them too). For changes to the build or install steps, also run `tests/e2e.sh --quick`. Change or add a test first, then the code.
+For code changes, run `tests/lint.sh` and `tests/unit.sh` (both need `git`; lint may download the pinned shellcheck image; CI runs them too). For changes to the build or install steps, also run `tests/e2e.sh --quick`. Change or add a test first, then the code.
 
 ## Licence
 

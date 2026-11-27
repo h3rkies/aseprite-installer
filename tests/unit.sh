@@ -807,6 +807,20 @@ test_manifest_read_skips_paths_outside_the_prefix() {
   assert_contains "$ERR_OUT" "/etc/passwd"
 }
 
+test_manifest_read_keeps_only_the_scripts_own_paths() {
+  ASEPRITE_PREFIX="$T/p"
+  init_globals
+  resolve_paths
+  local -a own=("$BIN_LINK" "$DESKTOP_FILE" "$ICON_ROOT/16x16/apps/aseprite.png" "$ICON_ROOT/256x256/apps/aseprite.png"
+    "$MIME_FILE" "$THUMB_BIN" "$THUMB_ENTRY" "$APP_DIR")
+  printf '%s\n' "${own[@]}" "$PREFIX/share" "$PREFIX/opt" "$PREFIX/bin" "$ICON_ROOT" "$PREFIX/share/applications" \
+    "$ICON_ROOT/16x16/apps/other.png" "$ICON_ROOT/big/apps/aseprite.png" "$APP_DIR/aseprite" "$PREFIX/bin/other" >"$T/m"
+  capture2 manifest_read "$T/m"
+  assert_eq "$(printf '%s\n' "${own[@]}")" "$OUT"
+  assert_contains "$ERR_OUT" "Ignoring a manifest entry that the script does not install: $PREFIX/share"
+  assert_contains "$ERR_OUT" "$PREFIX/bin/other"
+}
+
 # --------------------------------------------------------------- log files
 
 test_rotate_logs_keeps_the_five_newest() {
@@ -2291,6 +2305,20 @@ test_uninstall_fallback_keeps_a_bin_that_is_not_ours() {
   [[ -L $BIN_LINK ]] || fail "a symlink pointing elsewhere was removed"
   setup_installed
   rm -f "$MANIFEST_FILE" "$BIN_LINK"
+  echo mine >"$BIN_LINK"
+  capture main --uninstall --yes
+  assert_eq mine "$(<"$BIN_LINK")" "a regular file is kept"
+}
+
+test_uninstall_with_manifest_keeps_a_bin_that_is_not_ours() {
+  setup_installed
+  ln -sfn /usr/bin/true "$BIN_LINK"
+  capture main --uninstall --yes
+  assert_rc 0 "$RC"
+  [[ -L $BIN_LINK ]] || fail "a symlink pointing elsewhere was removed"
+  assert_missing "$APP_DIR"
+  setup_installed
+  rm -f "$BIN_LINK"
   echo mine >"$BIN_LINK"
   capture main --uninstall --yes
   assert_eq mine "$(<"$BIN_LINK")" "a regular file is kept"

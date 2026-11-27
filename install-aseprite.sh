@@ -667,15 +667,32 @@ path_in_prefix() {
   [[ $p != *[[:cntrl:]]* ]]
 }
 
-# manifest_read FILE: the manifest paths, keeping only paths inside PREFIX.
+# manifest_path_known PATH: true for a path the install step creates: the
+# app folder, the bin link, the desktop entry, an icon, the MIME file or a
+# thumbnailer file. A damaged manifest can then never remove anything else.
+manifest_path_known() {
+  local p=$1 size
+  case $p in
+    "$APP_DIR" | "$BIN_LINK" | "$DESKTOP_FILE" | "$MIME_FILE" | "$THUMB_BIN" | "$THUMB_ENTRY") return 0 ;;
+  esac
+  [[ $p == "$ICON_ROOT"/*/apps/aseprite.png ]] || return 1
+  size=${p#"$ICON_ROOT"/}
+  size=${size%/apps/aseprite.png}
+  [[ $size =~ ^[0-9]+x[0-9]+$ ]]
+}
+
+# manifest_read FILE: the manifest paths, keeping only clean paths inside
+# PREFIX that the script itself installs.
 manifest_read() {
   local line
   while IFS= read -r line || [[ -n $line ]]; do
     [[ -n $line ]] || continue
-    if path_in_prefix "$line"; then
-      printf '%s\n' "$line"
-    else
+    if ! path_in_prefix "$line"; then
       warn "Ignoring a manifest entry outside $PREFIX: $line"
+    elif ! manifest_path_known "$line"; then
+      warn "Ignoring a manifest entry that the script does not install: $line"
+    else
+      printf '%s\n' "$line"
     fi
   done <"$1"
 }
@@ -2142,21 +2159,31 @@ confirm_removal() {
   [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || die 1 "Nothing was removed."
 }
 
-# uninstall_paths: what to remove, existing paths only. The manifest if
-# there is one (entries outside the prefix are skipped), else the fixed
-# paths in README.md "Paths and overrides", with bin/aseprite only if it links into the app.
+# bin_link_is_ours: true when bin/aseprite is a symlink into the app folder.
+bin_link_is_ours() {
+  local target
+  [[ -L $BIN_LINK ]] || return 1
+  target=$(readlink -- "$BIN_LINK") || return 1
+  [[ $target == "$APP_DIR"/* ]]
+}
+
+# uninstall_paths: what to remove, existing paths only. The manifest if there
+# is one (manifest_read keeps only the paths the install step creates), else
+# the fixed paths in README.md "Paths and overrides". Either way bin/aseprite
+# is removed only while it still links into the app.
 uninstall_paths() {
-  local p target
+  local p
   if [[ -f $MANIFEST_FILE ]]; then
     while IFS= read -r p; do
+      if [[ $p == "$BIN_LINK" ]]; then
+        bin_link_is_ours && printf '%s\n' "$p"
+        continue
+      fi
       if [[ -e $p || -L $p ]]; then printf '%s\n' "$p"; fi
     done < <(manifest_read "$MANIFEST_FILE")
     return 0
   fi
-  if [[ -L $BIN_LINK ]]; then
-    target=$(readlink -- "$BIN_LINK") || target=""
-    if [[ $target == "$APP_DIR"/* ]]; then printf '%s\n' "$BIN_LINK"; fi
-  fi
+  if bin_link_is_ours; then printf '%s\n' "$BIN_LINK"; fi
   for p in "$DESKTOP_FILE" "$ICON_ROOT"/*/apps/aseprite.png "$MIME_FILE" "$THUMB_BIN" "$THUMB_ENTRY" "$APP_DIR"; do
     if [[ -e $p || -L $p ]]; then printf '%s\n' "$p"; fi
   done
