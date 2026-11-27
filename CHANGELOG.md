@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 (2026-11-27)
 
 - Uninstall removes only manifest entries that are paths the install step creates; anything else in a damaged manifest is skipped with a warning.
 - Uninstall removes `bin/aseprite` only while it still links into the app folder; a link or file you put there yourself is kept.
